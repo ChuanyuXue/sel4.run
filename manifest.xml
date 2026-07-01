@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+    <default revision="master" sync-j="8" />
+
+    <remote name="chuanyu" fetch="git@github.com:ChuanyuXue" />
+    <remote name="sel4" fetch="https://github.com/seL4" />
+    <remote name="riscv" fetch="https://github.com/riscv-software-src" />
+
+    <project
+        remote="chuanyu"
+        name="sel4.run"
+        path="sel4.run"
+        revision="main" />
+
+    <project
+        remote="sel4"
+        name="seL4"
+        path="kernel"/>
+
+    <project
+        remote="chuanyu"
+        name="TinyEmu"
+        path="tools/TinyEmu"
+        revision="main" />
+
+    <project
+        remote="sel4"
+        name="seL4_tools"
+        path="tools/seL4_tools" />
+
+    <project
+        remote="riscv"
+        name="opensbi"
+        path="tools/opensbi" />
+
+    <project
+        remote="sel4"
+        name="musllibc"
+        path="projects/musllibc" />
+
+    <project
+        remote="sel4"
+        name="util_libs"
+        path="projects/util_libs" />
+
+    <project
+        remote="sel4"
+        name="seL4_libs"
+        path="projects/seL4_libs" />
+</manifest>
