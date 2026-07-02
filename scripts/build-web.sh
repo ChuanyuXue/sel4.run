@@ -38,20 +38,35 @@ cp "$web_src/index.html" "$web_src/app.js" \
 cp "$web_src"/examples/* "$dist/examples/"
 
 toolchain_ok=1
+rm -f "$dist"/*.wasm.part* "$dist/toolchain.json"
+printf '{\n' > "$dist/toolchain.json"
+sep=""
 for tool in clang lld llvm-objcopy; do
     js="$repo_root/build/llvm-wasm/bin/$tool.js"
     if [ -f "$js" ]; then
-        cp "${js%.js}.wasm" "$dist/"
         # The tools are built with memory growth, which makes the wasm heap a
         # resizable ArrayBuffer; Chrome's TextDecoder refuses views on those.
         # Decode from a copy instead.
         sed 's|UTF8Decoder.decode(heapOrArray.subarray(idx,endPtr))|UTF8Decoder.decode(heapOrArray.slice(idx,endPtr))|' \
             "$js" > "$dist/$tool.js"
+        # Cloudflare Pages caps files at 25 MiB, so ship the wasm in slices
+        # that the compiler worker reassembles (toolchain.json = slice count).
+        rm -f "$dist/$tool.wasm"
+        split -b 20m "${js%.js}.wasm" "$dist/$tool.wasm.tmp"
+        nparts=0
+        for p in "$dist/$tool.wasm.tmp"??; do
+            mv "$p" "$dist/$tool.wasm.part$nparts"
+            nparts=$((nparts + 1))
+        done
+        printf '%s    "%s": %s' "$sep" "$tool.wasm" "$nparts" >> "$dist/toolchain.json"
+        sep=',
+'
     else
         echo "warning: $js not built yet; Run will not work" >&2
         toolchain_ok=0
     fi
 done
+printf '\n}\n' >> "$dist/toolchain.json"
 
 echo "Static site assembled in $dist (toolchain: $([ $toolchain_ok = 1 ] && echo ok || echo MISSING))"
 echo "Serve it with: sel4.run/scripts/run-web.sh"

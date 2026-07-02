@@ -61,6 +61,24 @@ function cpioNewc(entries) {
 let sysroot = null;   /* Map path -> Uint8Array */
 let manifest = null;
 const factories = {};
+const wasmModules = {};   /* tool -> compiled WebAssembly.Module */
+
+/* the tool wasm is shipped in slices (Cloudflare Pages caps files at
+ * 25 MiB); reassemble and compile once, then reuse the module per Run */
+async function loadToolWasm(name, nparts) {
+    const parts = await Promise.all(
+        Array.from({ length: nparts }, (_, i) =>
+            fetch(name + ".part" + i).then((r) => {
+                if (!r.ok) throw new Error(name + ".part" + i + ": HTTP " + r.status);
+                return r.arrayBuffer();
+            })));
+    let len = 0;
+    for (const p of parts) len += p.byteLength;
+    const bytes = new Uint8Array(len);
+    let off = 0;
+    for (const p of parts) { bytes.set(new Uint8Array(p), off); off += p.byteLength; }
+    return WebAssembly.compile(bytes);
+}
 
 async function init() {
     const resp = await fetch("sysroot.tar.gz");
@@ -69,9 +87,12 @@ async function init() {
         resp.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
     sysroot = untar(new Uint8Array(raw));
     manifest = JSON.parse(dec.decode(sysroot.get("manifest.json")));
+    const toolchain = await (await fetch("toolchain.json")).json();
     for (const tool of ["clang", "lld", "llvm-objcopy"]) {
         importScripts(tool + ".js");
         factories[tool] = self.LLVMTool;
+        wasmModules[tool] = await loadToolWasm(tool + ".wasm",
+                                               toolchain[tool + ".wasm"] || 1);
     }
     postMessage({ type: "ready" });
 }
@@ -84,6 +105,12 @@ async function runTool(tool, argv, extraFiles, outputs) {
         noInitialRun: true,
         /* lld is a generic driver and picks its personality from argv[0] */
         thisProgram: "/bin/" + (tool === "lld" ? "ld.lld" : tool),
+        /* instantiate from the pre-compiled module instead of re-fetching
+         * and re-compiling the wasm on every run */
+        instantiateWasm: (info, receive) => {
+            WebAssembly.instantiate(wasmModules[tool], info).then(receive);
+            return {};
+        },
     });
     const seen = new Set();
     const write = (path, data) => {
