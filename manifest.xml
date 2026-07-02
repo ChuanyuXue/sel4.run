@@ -36,7 +36,8 @@
     <project
         remote="sel4"
         name="musllibc"
-        path="projects/musllibc" />
+        path="projects/musllibc"
+        revision="15.0.x-compatible" />
 
     <project
         remote="sel4"
@@ -47,4 +48,10 @@
         remote="sel4"
         name="seL4_libs"
         path="projects/seL4_libs" />
+
+    <project
+        remote="sel4"
+        name="sel4runtime"
+        path="projects/sel4runtime"
+        revision="15.0.x-compatible" />
 </manifest>
