@@ -3,7 +3,6 @@
 import { EditorView, basicSetup } from "https://esm.sh/codemirror@6.0.1";
 import { cpp } from "https://esm.sh/@codemirror/lang-cpp@6.0.2";
 import { oneDark } from "https://esm.sh/@codemirror/theme-one-dark@6.1.2";
-import lz from "https://esm.sh/lz-string@1.5.0";
 
 const $ = (id) => document.getElementById(id);
 const RAM_MB = 256;
@@ -60,7 +59,6 @@ compiler.onmessage = (e) => {
         dim(m.data);
     } else if (m.type === "built") {
         lastImage = m.image;
-        $("download").disabled = false;
         startEmulator(m.image);
     } else if (m.type === "error") {
         dim(m.message);
@@ -116,24 +114,10 @@ $("stop").onclick = () => {
     $("stop").disabled = true;
 };
 $("reset").onclick = () => lastImage && startEmulator(lastImage);
-$("share").onclick = async () => {
-    const url = new URL(location.href);
-    url.hash = "code=" + lz.compressToEncodedURIComponent(getCode());
-    history.replaceState(null, "", url);
-    await navigator.clipboard.writeText(url.href);
-    setStatus("link copied");
-};
-$("download").onclick = () => {
-    if (!lastImage) return;
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([lastImage]));
-    a.download = "sel4-image-riscv.bin";
-    a.click();
-    URL.revokeObjectURL(a.href);
-};
 
-/* ---- examples ---- */
+/* ---- examples (start on the first one) ---- */
 const select = $("example");
+const loadExample = async (file) => setCode(await (await fetch(file)).text());
 fetch("examples/index.json")
     .then((r) => r.json())
     .then((examples) => {
@@ -143,18 +127,9 @@ fetch("examples/index.json")
             opt.textContent = ex.title;
             select.appendChild(opt);
         }
+        loadExample(examples[0].file);
     });
-select.onchange = async () => {
-    if (!select.value) { setCode(""); return; }
-    const r = await fetch(select.value);
-    setCode(await r.text());
-};
-
-/* ---- restore shared code ---- */
-if (location.hash.startsWith("#code=")) {
-    const code = lz.decompressFromEncodedURIComponent(location.hash.slice(6));
-    if (code) setCode(code);
-}
+select.onchange = () => loadExample(select.value);
 
 setStatus("loading toolchain…");
 

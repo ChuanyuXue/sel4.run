@@ -37,6 +37,16 @@
   button:disabled { opacity: 0.4; }
   button:not(:disabled):hover { background: #2f334d; }
   #run:not(:disabled) { background: #315136; border-color: #4d7c57; }
+  #github {
+    background: #24283b;
+    color: #c0caf5;
+    border: 1px solid #3b4261;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 13px;
+    text-decoration: none;
+  }
+  #github:hover { background: #2f334d; }
   #status { margin-left: auto; font-size: 12px; color: #7a83a8; }
   main {
     flex: 1;
@@ -56,14 +66,11 @@
 <body>
 <header>
   <span class="brand">sel4.run</span>
-  <select id="example">
-    <option value="">Example…</option>
-  </select>
+  <select id="example"></select>
   <button id="run" disabled>Run</button>
   <button id="stop" disabled>Stop</button>
   <button id="reset" disabled>Reset</button>
-  <button id="share">Share</button>
-  <button id="download" disabled>Download image</button>
+  <a id="github" href="https://github.com/ChuanyuXue/sel4.run" target="_blank">GitHub</a>
   <span id="status">loading…</span>
 </header>
 <main>

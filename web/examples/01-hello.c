@@ -10,6 +10,8 @@
  * This program *is* that root task. printf() works because the runtime
  * routes characters to the kernel's debug console (seL4_DebugPutChar),
  * which TinyEmu forwards to this terminal.
+ *
+ * Official tutorial: https://docs.sel4.systems/Tutorials/hello-world.html
  */
 
 #include <stdio.h>
@@ -17,7 +19,7 @@
 
 int main(void)
 {
-    printf("hello from seL4 on TinyEmu!\n");
+    printf("seL4 from your local browser!\n");
     printf("this text was compiled in your browser and is running as the\n");
     printf("seL4 root task inside an emulated RISC-V machine.\n");
 

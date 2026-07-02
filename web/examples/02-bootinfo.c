@@ -8,6 +8,8 @@
  *
  * Nothing here is discovered at runtime by probing hardware; it is the
  * kernel telling you, precisely, what exists.
+ *
+ * Official tutorial: https://docs.sel4.systems/Tutorials/capabilities.html
  */
 
 #include <stdio.h>

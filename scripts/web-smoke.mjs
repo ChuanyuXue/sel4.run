@@ -20,7 +20,7 @@ const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 /* what each example must print (see web/examples/) */
 const EXPECT = {
-    1: "hello from seL4 on TinyEmu!",
+    1: "seL4 from your local browser!",
     2: "total non-device untyped",
     3: "seL4_CapInitThreadTCB",
     4: "after delete, kernel tag",

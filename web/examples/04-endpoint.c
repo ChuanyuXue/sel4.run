@@ -6,6 +6,8 @@
  * seL4_Untyped_Retype syscall -- that is the only way anything is ever
  * created. Here we turn a slice of untyped into an endpoint, the object
  * two threads later use to exchange IPC messages.
+ *
+ * Official tutorial: https://docs.sel4.systems/Tutorials/untyped.html
  */
 
 #include <stdio.h>

@@ -10,6 +10,8 @@
  * That is the entire memory-management API: no free(), no GC. Whoever
  * holds untyped caps controls all future allocation -- which is how seL4
  * systems partition memory between untrusting components.
+ *
+ * Official tutorial: https://docs.sel4.systems/Tutorials/untyped.html
  */
 
 #include <stdio.h>

@@ -8,6 +8,8 @@
  *
  * The child has no IPC buffer and no TLS of its own, so it uses
  * seL4_CallWithMRs, which passes the message purely in CPU registers.
+ *
+ * Official tutorial: https://docs.sel4.systems/Tutorials/ipc.html
  */
 
 #include <stdio.h>

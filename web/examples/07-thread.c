@@ -12,6 +12,8 @@
  *
  * Every object below is still retyped from the untypeds you saw in
  * example 2 -- just not by us line-by-line.
+ *
+ * Official tutorial: https://docs.sel4.systems/Tutorials/threads.html
  */
 
 #include <stdio.h>

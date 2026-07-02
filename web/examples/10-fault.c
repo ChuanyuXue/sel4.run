@@ -9,6 +9,8 @@
  *
  * We build a thread exactly like example 5, register a fault endpoint for
  * it, and let it dereference a wild pointer.
+ *
+ * Official tutorial: https://docs.sel4.systems/Tutorials/fault-handlers.html
  */
 
 #include <stdio.h>

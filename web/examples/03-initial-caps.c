@@ -10,6 +10,8 @@
  * task finds these objects at these addresses in its root CNode.
  * seL4_DebugCapIdentify asks the (debug) kernel what actually sits in a
  * slot; the number it returns is the kernel-internal cap type tag.
+ *
+ * Official tutorial: https://docs.sel4.systems/Tutorials/capabilities.html
  */
 
 #include <stdio.h>

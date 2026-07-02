@@ -10,6 +10,8 @@
  * extra information. This is how one receiver can tell many signallers
  * apart -- and it works within a single thread, so we can demo it here
  * without any of example 5's thread machinery.
+ *
+ * Official tutorial: https://docs.sel4.systems/Tutorials/notifications.html
  */
 
 #include <stdio.h>

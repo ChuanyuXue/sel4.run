@@ -9,6 +9,8 @@
  *
  * This is the mechanism behind every mmap(), every shared-memory buffer
  * and every device mapping in an seL4 system.
+ *
+ * Official tutorial: https://docs.sel4.systems/Tutorials/mapping.html
  */
 
 #include <stdio.h>
