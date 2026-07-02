@@ -1,0 +1,12 @@
+/*
+ * TinyEmu machine overlay: shrink memory from the spike default (~4 GiB)
+ * to 256 MiB. The kernel bakes this range in at build time, so the
+ * emulated machine must provide all of it -- and a wasm32 browser build
+ * of TinyEmu cannot back 4 GiB of emulated RAM. 256 MiB lets the same
+ * system image run natively and in the browser.
+ */
+/ {
+    memory@80000000 {
+        reg = <0x00000000 0x80000000 0x00000000 0x10000000>;
+    };
+};

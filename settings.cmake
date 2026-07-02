@@ -43,6 +43,10 @@ set(KernelMaxNumNodes 1 CACHE STRING "")
 # register; read the timestamp directly from CLINT instead of trapping.
 set(KernelRiscvUseClintMtime ON CACHE BOOL "" FORCE)
 
+# Shrink the memory range the kernel is built for, so the image also runs
+# in the browser (wasm) build of TinyEmu; see overlay-tinyemu.dts.
+set(KernelCustomDTSOverlay "${repo_dir}/overlay-tinyemu.dts" CACHE STRING "" FORCE)
+
 # Elfloader settings that correspond to how the spike platform is set up.
 ApplyData61ElfLoaderSettings(${KernelPlatform} ${KernelSel4Arch})
 
