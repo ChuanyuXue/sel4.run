@@ -1,13 +1,14 @@
 /*
  * 1. Hello root task
  *
- * This is not a normal hosted C program. The browser boots a RISC-V machine
- * in TinyEmu, OpenSBI starts seL4, and seL4 starts exactly one user-space
- * program: this root task.
+ * Yes, another boring project that runs kernel in browser with WebAssembly,
+ * but seL4 microkernel this time ✌️
  *
- * The root task begins with capabilities to the initial kernel objects and
- * to all remaining untyped memory. From those capabilities, user space can
- * create endpoints, threads, address spaces and every other kernel object.
+ * The browser boots a RISC-V machine in TinyEmu, OpenSBI starts seL4, and
+ * seL4 starts exactly one user-space program: this root task. The root task
+ * begins with capabilities to the initial kernel objects and to all remaining
+ * untyped memory. From those capabilities, user space can create endpoints,
+ * threads, address spaces and every other kernel object.
  *
  * Github: https://github.com/ChuanyuXue/sel4.run
  */
@@ -15,7 +16,7 @@
 #include <sel4/sel4.h>
 #include <stdio.h>
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     printf("hello from the seL4 root task\n\n");
 
     printf("boot path:\n");

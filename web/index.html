@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>sel4.run</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
@@ -60,7 +61,21 @@
     font-size: 13px;
   }
   #editor .cm-editor { height: 100%; }
-  #terminal { height: 100%; padding: 4px; }
+  #terminal { height: 100%; padding: 4px; min-width: 0; min-height: 0; overflow: hidden; }
+
+  /* phones: stack the panes -- code on top, terminal below */
+  @media (max-width: 768px) {
+    header { flex-wrap: wrap; }
+    main {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr 1fr;
+    }
+    #editor {
+      border-right: none;
+      border-bottom: 1px solid #2a2c3d;
+      min-height: 0;
+    }
+  }
 </style>
 </head>
 <body>
