@@ -16,16 +16,16 @@
 
 int main(void)
 {
-    seL4_BootInfo *bi = platsupport_get_bootinfo();
+    seL4_BootInfo *info = platsupport_get_bootinfo();
 
     /* pick the smallest usable (non-device) untyped */
     seL4_CPtr untyped = 0;
     unsigned size_bits = 64;
-    for (seL4_Word i = 0; i < bi->untyped.end - bi->untyped.start; i++) {
-        seL4_UntypedDesc *u = &bi->untypedList[i];
+    for (seL4_Word i = 0; i < info->untyped.end - info->untyped.start; i++) {
+        seL4_UntypedDesc *u = &info->untypedList[i];
         if (!u->isDevice && u->sizeBits >= seL4_EndpointBits
             && u->sizeBits < size_bits) {
-            untyped = bi->untyped.start + i;
+            untyped = info->untyped.start + i;
             size_bits = u->sizeBits;
         }
     }
@@ -33,7 +33,7 @@ int main(void)
            (unsigned long)untyped, size_bits);
 
     /* the new cap needs an empty slot in our CNode */
-    seL4_CPtr slot = bi->empty.start;
+    seL4_CPtr slot = info->empty.start;
     printf("destination: empty slot %lu\n", (unsigned long)slot);
     printf("before retype, kernel tag there: %lu (null)\n",
            (unsigned long)seL4_DebugCapIdentify(slot));

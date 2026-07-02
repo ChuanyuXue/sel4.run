@@ -20,16 +20,16 @@ const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 /* what each example must print (see web/examples/) */
 const EXPECT = {
-    1: "seL4 from your local browser!",
+    1: "hello from the seL4 root task",
     2: "total non-device untyped",
-    3: "seL4_CapInitThreadTCB",
+    3: "Suspending current thread",
     4: "after delete, kernel tag",
-    5: "three round trips",
-    6: "the word was cleared by the first wait",
-    7: "worker checked in",
-    8: "the memory is reusable again",
-    9: "read back 0xc0ffee",
-    10: "seL4_Fault_VMFault",
+    5: "brown fox",
+    6: "producer 2 has produced",
+    7: "Hello 3 42",
+    8: "Success",
+    9: "Set x to 5",
+    10: "recovered and completed",
 };
 const wanted = process.argv.slice(2).map(Number);
 const cases = Object.entries(EXPECT)

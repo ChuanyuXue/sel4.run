@@ -174,7 +174,7 @@ cpio = [
     {"name": "kernel.elf", "path": add_file(os.path.join(BUILD, "elfloader-tool/kernel.elf"))},
     {"name": "kernel.dtb", "path": add_file(os.path.join(BUILD, "kernel/kernel.dtb"))},
 ]
-with open(os.path.join(BUILD, "opensbi/platform/generic/firmware/fw_payload.bin"), "rb") as f:
+with open(os.path.join(BUILD, "images/hello-image-riscv-spike.bin"), "rb") as f:
     opensbi_prefix = f.read(OPENSBI_PREFIX_SIZE)
 
 manifest = {

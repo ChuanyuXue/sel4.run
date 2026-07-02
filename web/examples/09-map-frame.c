@@ -1,14 +1,16 @@
 /*
- * 9. Map a frame
+ * 9. Mapping
  *
  * Virtual memory in seL4 is manual: a *frame* is a cap to 4KiB of physical
- * memory, and putting it into your address space is an explicit syscall on
- * an explicit page-table object. If an intermediate page table is missing,
- * the kernel does not conjure one up -- the map fails and *you* must
- * retype a page table and map it first.
+ * memory, and putting it into an address space is an explicit syscall on an
+ * explicit paging object. Missing intermediate structures are not conjured
+ * up by the kernel -- the map fails and *you* retype and map them.
  *
- * This is the mechanism behind every mmap(), every shared-memory buffer
- * and every device mapping in an seL4 system.
+ * This follows the official mapping tutorial. That tutorial is written for
+ * x86_64 (PDPT + PageDirectory + PageTable); on RISC-V sv39 every
+ * intermediate level is a page-table object, so where the official code
+ * maps three different object types we map two page tables, using the
+ * arch-generic seL4_ARCH_* aliases the tutorials use elsewhere.
  *
  * Official tutorial: https://docs.sel4.systems/Tutorials/mapping.html
  */
@@ -16,62 +18,66 @@
 #include <stdio.h>
 #include <sel4/sel4.h>
 #include <sel4platsupport/bootinfo.h>
+#include <utils/util.h>
+#include <vspace/arch/page.h>
 
-/* carve one object out of untyped memory (see example 4) */
-static seL4_CPtr retype(seL4_BootInfo *bi, seL4_Word type, seL4_Word obj_bits)
-{
-    static seL4_CPtr next_slot;
-    if (!next_slot)
-        next_slot = bi->empty.start;
-    for (seL4_Word i = 0; i < bi->untyped.end - bi->untyped.start; i++) {
-        if (bi->untypedList[i].isDevice
-            || bi->untypedList[i].sizeBits < obj_bits)
-            continue;
-        if (seL4_Untyped_Retype(bi->untyped.start + i, type, 0,
-                                seL4_CapInitThreadCNode, 0, 0,
-                                next_slot, 1) == seL4_NoError)
-            return next_slot++;
+/* somewhere far away from anything the root task already has mapped */
+#define TEST_VADDR 0x1000000000
+
+int main(int argc, char *argv[]) {
+    seL4_Error error;
+    seL4_BootInfo *info = platsupport_get_bootinfo();
+
+    /* carve a frame and two page tables out of untyped memory
+     * (the official tutorial's environment pre-allocates these) */
+    seL4_CPtr frame = info->empty.start;
+    seL4_CPtr pt_1 = frame + 1;
+    seL4_CPtr pt_2 = frame + 2;
+    seL4_CPtr parent_untyped = 0;
+    for (int i = 0; i < (info->untyped.end - info->untyped.start); i++) {
+        if (info->untypedList[i].sizeBits >= seL4_PageBits + 2 && !info->untypedList[i].isDevice) {
+            parent_untyped = info->untyped.start + i;
+            break;
+        }
     }
-    return seL4_CapNull;
-}
+    seL4_Untyped_Retype(parent_untyped, seL4_RISCV_4K_Page, 0,
+                        seL4_CapInitThreadCNode, 0, 0, frame, 1);
+    seL4_Untyped_Retype(parent_untyped, seL4_RISCV_PageTableObject, 0,
+                        seL4_CapInitThreadCNode, 0, 0, pt_1, 1);
+    seL4_Untyped_Retype(parent_untyped, seL4_RISCV_PageTableObject, 0,
+                        seL4_CapInitThreadCNode, 0, 0, pt_2, 1);
 
-int main(void)
-{
-    seL4_BootInfo *bi = platsupport_get_bootinfo();
+    /* map a read-only page at TEST_VADDR */
+    error = seL4_ARCH_Page_Map(frame, seL4_CapInitThreadVSpace, TEST_VADDR,
+                               seL4_CanRead, seL4_ARCH_Default_VMAttributes);
+    printf("first Page_Map attempt: error %d (seL4_FailedLookup: no page table)\n", error);
 
-    seL4_CPtr frame = retype(bi, seL4_RISCV_4K_Page, seL4_PageBits);
-    seL4_Word vaddr = 0x40000000;   /* nothing is mapped up here */
-    printf("frame cap in slot %lu; trying to map it at %#lx\n",
-           (unsigned long)frame, (unsigned long)vaddr);
+    /* map a page table object at each missing sv39 level */
+    error = seL4_ARCH_PageTable_Map(pt_1, seL4_CapInitThreadVSpace, TEST_VADDR,
+                                    seL4_ARCH_Default_VMAttributes);
+    assert(error == seL4_NoError);
+    error = seL4_ARCH_PageTable_Map(pt_2, seL4_CapInitThreadVSpace, TEST_VADDR,
+                                    seL4_ARCH_Default_VMAttributes);
+    assert(error == seL4_NoError);
 
-    seL4_Error err = seL4_RISCV_Page_Map(
-        frame, seL4_CapInitThreadVSpace, vaddr,
-        seL4_ReadWrite, seL4_RISCV_Default_VMAttributes);
+    /* now the read-only mapping succeeds */
+    error = seL4_ARCH_Page_Map(frame, seL4_CapInitThreadVSpace, TEST_VADDR,
+                               seL4_CanRead, seL4_ARCH_Default_VMAttributes);
+    assert(error == seL4_NoError);
 
-    /* each failure = one missing level of the (sv39) page-table tree */
-    while (err == seL4_FailedLookup) {
-        printf("  -> seL4_FailedLookup: a page table is missing; making one\n");
-        seL4_CPtr pt = retype(bi, seL4_RISCV_PageTableObject, seL4_PageTableBits);
-        seL4_RISCV_PageTable_Map(pt, seL4_CapInitThreadVSpace, vaddr,
-                                 seL4_RISCV_Default_VMAttributes);
-        err = seL4_RISCV_Page_Map(frame, seL4_CapInitThreadVSpace, vaddr,
-                                  seL4_ReadWrite,
-                                  seL4_RISCV_Default_VMAttributes);
-    }
-    printf("mapped (err=%d)\n\n", err);
+    seL4_Word *x = (seL4_Word *) TEST_VADDR;
+    /* read from the newly mapped page */
+    printf("Read x: %lu\n", *x);
 
-    volatile unsigned long *p = (volatile unsigned long *)vaddr;
-    *p = 0xC0FFEE;
-    printf("wrote %#lx to %p and read back %#lx\n",
-           0xC0FFEEul, (void *)p, *p);
+    /* remap the page read-write, and write to it */
+    error = seL4_ARCH_Page_Map(frame, seL4_CapInitThreadVSpace, TEST_VADDR,
+                               seL4_ReadWrite, seL4_ARCH_Default_VMAttributes);
+    assert(error == seL4_NoError);
+    *x = 5;
+    printf("Set x to 5\n");
+    printf("Read x: %lu\n", *x);
+    printf("Success\n");
 
-    seL4_RISCV_Page_Unmap(frame);
-    printf("frame unmapped again -- the memory still exists, it just has\n");
-    printf("no address here anymore. touching %p now would page-fault\n",
-           (void *)p);
-    printf("(exactly what example 10 is about).\n");
-
-    seL4_DebugHalt();
-    while (1)
-        seL4_Yield();
+    seL4_DebugHalt();   /* sel4.run: power the machine off */
+    return 0;
 }

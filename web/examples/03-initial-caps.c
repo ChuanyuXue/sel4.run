@@ -1,58 +1,70 @@
 /*
- * 3. Print the initial capabilities
+ * 3. Capabilities
  *
- * A capability ("cap") is an unforgeable token that both names a kernel
- * object and grants rights to it. Caps live in slots of CNodes, and every
- * syscall names its target by a slot address -- there are no global handles
- * or PIDs in seL4.
+ * A capability is a unique, unforgeable token that gives the possessor
+ * permission to access an entity or object in the system -- think of it as
+ * a pointer with access rights. Caps live in CSlots of CNodes; the full
+ * set reachable by a thread is its CSpace. Every syscall names its target
+ * by a CSlot address: there are no global handles or PIDs in seL4.
  *
- * The slots below are fixed by the seL4 API: the kernel guarantees the root
- * task finds these objects at these addresses in its root CNode.
- * seL4_DebugCapIdentify asks the (debug) kernel what actually sits in a
- * slot; the number it returns is the kernel-internal cap type tag.
+ * This is the official capabilities tutorial's solution code, unmodified:
+ * it measures the root CNode, copies the TCB cap around, deletes the
+ * copies by revoking the original, and finally suspends the root task by
+ * invoking its own TCB. The kernel error messages you will see in the
+ * output are part of the exercise -- read them!
  *
  * Official tutorial: https://docs.sel4.systems/Tutorials/capabilities.html
  */
 
 #include <stdio.h>
 #include <sel4/sel4.h>
+#include <sel4platsupport/bootinfo.h>
+#include <utils/util.h>
 
-static void show(seL4_Word slot, const char *name, const char *what)
-{
-    printf("slot %2lu  %-28s kernel tag %-3lu  %s\n",
-           (unsigned long)slot, name,
-           (unsigned long)seL4_DebugCapIdentify(slot), what);
-}
+int main(int argc, char *argv[]) {
 
-int main(void)
-{
-    printf("well-known capabilities of the root task:\n\n");
-    show(seL4_CapNull, "seL4_CapNull",
-         "the empty slot; using it always fails");
-    show(seL4_CapInitThreadTCB, "seL4_CapInitThreadTCB",
-         "this very thread's TCB");
-    show(seL4_CapInitThreadCNode, "seL4_CapInitThreadCNode",
-         "the CNode this table lives in");
-    show(seL4_CapInitThreadVSpace, "seL4_CapInitThreadVSpace",
-         "top-level page table of this address space");
-    show(seL4_CapIRQControl, "seL4_CapIRQControl",
-         "mint per-IRQ handler caps from this");
-    show(seL4_CapASIDControl, "seL4_CapASIDControl",
-         "create ASID pools (address space IDs)");
-    show(seL4_CapInitThreadASIDPool, "seL4_CapInitThreadASIDPool",
-         "the pool our VSpace's ASID comes from");
-    show(seL4_CapBootInfoFrame, "seL4_CapBootInfoFrame",
-         "the frame holding BootInfo itself");
-    show(seL4_CapInitThreadIPCBuffer, "seL4_CapInitThreadIPCBuffer",
-         "frame of this thread's IPC buffer");
-    show(seL4_CapDomain, "seL4_CapDomain",
-         "assign threads to scheduling domains");
+    /* parse the location of the seL4_BootInfo data structure from
+    the environment variables set up by the default crt0.S */
+    seL4_BootInfo *info = platsupport_get_bootinfo();
 
-    printf("\na cap is *authority*: if it is not in your CNode, you cannot\n");
-    printf("even express the request. delete a cap and the object is gone\n");
-    printf("from your world.\n");
+    size_t initial_cnode_object_size = BIT(info->initThreadCNodeSizeBits);
+    printf("Initial CNode is %zu slots in size\n", initial_cnode_object_size);
 
-    seL4_DebugHalt();
-    while (1)
-        seL4_Yield();
+    size_t initial_cnode_object_size_bytes = initial_cnode_object_size * (1u << seL4_SlotBits);
+    printf("The CNode is %zu bytes in size\n", initial_cnode_object_size_bytes);
+
+    seL4_CPtr first_free_slot = info->empty.start;
+    seL4_Error error = seL4_CNode_Copy(seL4_CapInitThreadCNode, first_free_slot, seL4_WordBits,
+                                       seL4_CapInitThreadCNode, seL4_CapInitThreadTCB, seL4_WordBits,
+                                       seL4_AllRights);
+    ZF_LOGF_IF(error, "Failed to copy cap!");
+    seL4_CPtr last_slot = info->empty.end - 1;
+
+    /* use seL4_CNode_Copy to make another copy of the initial TCB capability to the last slot in the CSpace */
+    error = seL4_CNode_Copy(seL4_CapInitThreadCNode, last_slot, seL4_WordBits,
+                      seL4_CapInitThreadCNode, first_free_slot, seL4_WordBits, seL4_AllRights);
+    ZF_LOGF_IF(error, "Failed to copy cap!");
+
+    /* set the priority of the root task */
+    error = seL4_TCB_SetPriority(last_slot, last_slot, 10);
+    ZF_LOGF_IF(error, "Failed to set priority");
+
+    /* delete the created TCB capabilities */
+    seL4_CNode_Revoke(seL4_CapInitThreadCNode, seL4_CapInitThreadTCB, seL4_WordBits);
+
+    /* check first_free_slot is empty */
+    error = seL4_CNode_Move(seL4_CapInitThreadCNode, first_free_slot, seL4_WordBits,
+                            seL4_CapInitThreadCNode, first_free_slot, seL4_WordBits);
+    ZF_LOGF_IF(error != seL4_FailedLookup, "first_free_slot is not empty");
+
+    /* check last_slot is empty */
+    error = seL4_CNode_Move(seL4_CapInitThreadCNode, last_slot, seL4_WordBits,
+                            seL4_CapInitThreadCNode, last_slot, seL4_WordBits);
+    ZF_LOGF_IF(error != seL4_FailedLookup, "last_slot is not empty");
+
+    printf("Suspending current thread\n");
+    seL4_TCB_Suspend(seL4_CapInitThreadTCB);
+    ZF_LOGF("Failed to suspend current thread\n");
+
+    return 0;
 }

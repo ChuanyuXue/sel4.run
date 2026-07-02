@@ -1,30 +1,38 @@
 /*
  * 1. Hello root task
  *
- * When seL4 finishes booting it starts exactly one user-space program: the
- * root task. The kernel hands it capabilities to every resource it knows
- * about -- all remaining memory, all device regions, its own thread -- and
- * from then on never invents anything new on its own. Everything your
- * system becomes is built from what the root task does next.
+ * This is not a normal hosted C program. The browser boots a RISC-V machine
+ * in TinyEmu, OpenSBI starts seL4, and seL4 starts exactly one user-space
+ * program: this root task.
  *
- * This program *is* that root task. printf() works because the runtime
- * routes characters to the kernel's debug console (seL4_DebugPutChar),
- * which TinyEmu forwards to this terminal.
+ * The root task begins with capabilities to the initial kernel objects and
+ * to all remaining untyped memory. From those capabilities, user space can
+ * create endpoints, threads, address spaces and every other kernel object.
  *
- * Official tutorial: https://docs.sel4.systems/Tutorials/hello-world.html
+ * Github: https://github.com/ChuanyuXue/sel4.run
  */
 
-#include <stdio.h>
 #include <sel4/sel4.h>
+#include <stdio.h>
 
-int main(void)
-{
-    printf("seL4 from your local browser!\n");
-    printf("this text was compiled in your browser and is running as the\n");
-    printf("seL4 root task inside an emulated RISC-V machine.\n");
+int main(int argc, char *argv[]) {
+    printf("hello from the seL4 root task\n\n");
 
-    /* Halt the whole machine (debug kernel only). Without this the root
-     * task would just spin: there is nothing else to schedule. */
+    printf("boot path:\n");
+    printf("  browser -> TinyEmu wasm -> OpenSBI -> seL4 -> root task\n\n");
+
+    printf("this program is the first user-space thread created by seL4.\n");
+    printf("it starts with capabilities such as:\n");
+    printf("  TCB:        slot %lu\n", (unsigned long)seL4_CapInitThreadTCB);
+    printf("  CNode:      slot %lu\n", (unsigned long)seL4_CapInitThreadCNode);
+    printf("  VSpace:     slot %lu\n", (unsigned long)seL4_CapInitThreadVSpace);
+    printf("  BootInfo:   slot %lu\n", (unsigned long)seL4_CapBootInfoFrame);
+    printf("  IRQControl: slot %lu\n", (unsigned long)seL4_CapIRQControl);
+
+    printf("\nthere is no kernel malloc, process table or file system here.\n");
+    printf("everything later examples create comes from explicit seL4 syscalls\n");
+    printf("using capabilities held by this root task.\n");
+
     seL4_DebugHalt();
     while (1) {
         seL4_Yield();

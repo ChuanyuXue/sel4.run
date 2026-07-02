@@ -1,13 +1,17 @@
 /*
- * 5. IPC ping-pong
+ * 5. IPC
  *
  * IPC is *the* seL4 primitive: synchronous, unbuffered message passing
- * through an endpoint. To show it we need a second thread -- and in seL4 a
- * thread is not magic, it is just another kernel object (a TCB) that we
- * retype out of untyped memory and point at some code and a stack.
+ * through an endpoint. This follows the official IPC tutorial's echo
+ * server: a client packs a string into message registers, one character
+ * per register, and seL4_Call()s the endpoint; the server prints the
+ * message and answers with seL4_ReplyRecv() -- reply to this sender and
+ * wait for the next message in a single kernel entry.
  *
- * The child has no IPC buffer and no TLS of its own, so it uses
- * seL4_CallWithMRs, which passes the message purely in CPU registers.
+ * The official tutorial's environment provides the client as a separate
+ * process; here the client is a second thread built by hand, exactly as a
+ * TCB is built in example 7. (The badged-endpoint half of the official
+ * tutorial appears in example 6.)
  *
  * Official tutorial: https://docs.sel4.systems/Tutorials/ipc.html
  */
@@ -15,18 +19,27 @@
 #include <stdio.h>
 #include <sel4/sel4.h>
 #include <sel4platsupport/bootinfo.h>
+#include <utils/util.h>
 
-static char child_stack[4096] __attribute__((aligned(16)));
 static seL4_CPtr endpoint;
 
-static void pinger(void)
+static const char *messages[] = { "the", "quick", "brown fox" };
+
+static char client_stack[4096] __attribute__((aligned(16)));
+
+static void client(void)
 {
-    for (seL4_Word n = 1;; n++) {
-        seL4_MessageInfo_t tag = seL4_MessageInfo_new(0, 0, 0, 1);
-        seL4_Word mr0 = n;
-        /* send "n", block until the main thread replies */
-        seL4_CallWithMRs(endpoint, tag, &mr0, NULL, NULL, NULL);
+    /* official tutorial client code: one character per message register */
+    for (int i = 0; i < ARRAY_SIZE(messages); i++) {
+        int j;
+        for (j = 0; messages[i][j] != '\0'; j++) {
+            seL4_SetMR(j, messages[i][j]);
+        }
+        seL4_MessageInfo_t info = seL4_MessageInfo_new(0, 0, 0, j);
+        seL4_Call(endpoint, info);
     }
+    while (1)
+        seL4_Yield();
 }
 
 /* carve one object out of untyped memory (see example 4) */
@@ -44,51 +57,54 @@ static seL4_CPtr retype(seL4_BootInfo *bi, seL4_Word type, seL4_Word obj_bits)
                                 next_slot, 1) == seL4_NoError)
             return next_slot++;
     }
-    printf("out of untyped memory!\n");
     return seL4_CapNull;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-    seL4_BootInfo *bi = platsupport_get_bootinfo();
+    seL4_BootInfo *info = platsupport_get_bootinfo();
 
-    endpoint = retype(bi, seL4_EndpointObject, seL4_EndpointBits);
-    seL4_CPtr tcb = retype(bi, seL4_TCBObject, seL4_TCBBits);
-    printf("endpoint in slot %lu, new TCB in slot %lu\n",
-           (unsigned long)endpoint, (unsigned long)tcb);
+    endpoint = retype(info, seL4_EndpointObject, seL4_EndpointBits);
+    seL4_CPtr tcb = retype(info, seL4_TCBObject, seL4_TCBBits);
 
-    /* the child shares our CSpace and address space */
+    /* build the client thread by hand (see example 7 for the guided
+     * version). Messages longer than 4 registers travel via the IPC
+     * buffer; the client shares ours -- safe, because Call/Reply strictly
+     * alternate which thread runs */
     seL4_TCB_Configure(tcb, seL4_CapNull,
                        seL4_CapInitThreadCNode, 0,
                        seL4_CapInitThreadVSpace, 0,
-                       0, 0 /* no IPC buffer */);
-    seL4_DebugNameThread(tcb, "pinger");
-
-    /* a thread is: a program counter, a stack pointer, and (on RISC-V)
-     * the gp/tp registers the C environment expects */
-    seL4_UserContext ctx = {0};
-    ctx.pc = (seL4_Word)pinger;
-    ctx.sp = (seL4_Word)(child_stack + sizeof(child_stack));
-    __asm__("mv %0, gp" : "=r"(ctx.gp));
-    __asm__("mv %0, tp" : "=r"(ctx.tp));
-    seL4_TCB_WriteRegisters(tcb, 0, 0,
-                            sizeof(ctx) / sizeof(seL4_Word), &ctx);
+                       (seL4_Word)info->ipcBuffer, seL4_CapInitThreadIPCBuffer);
+    seL4_DebugNameThread(tcb, "client");
+    seL4_UserContext regs = {0};
+    regs.pc = (seL4_Word)client;
+    regs.sp = (seL4_Word)(client_stack + sizeof(client_stack));
+    __asm__("mv %0, gp" : "=r"(regs.gp));
+    __asm__("mv %0, tp" : "=r"(regs.tp));
+    seL4_TCB_WriteRegisters(tcb, 0, 0, sizeof(regs) / sizeof(seL4_Word), &regs);
     seL4_TCB_Resume(tcb);
-    printf("child resumed; waiting for its calls\n\n");
+    printf("Client started; echo server waiting on the endpoint\n\n");
 
-    for (int i = 0; i < 3; i++) {
-        seL4_Word badge;
-        seL4_Recv(endpoint, &badge);        /* block until the child Calls */
-        seL4_Word n = seL4_GetMR(0);
-        printf("ping %lu received -> ponging back\n", (unsigned long)n);
-        seL4_Reply(seL4_MessageInfo_new(0, 0, 0, 0));
+    /* official tutorial server code: echo the message, reply, wait */
+    seL4_Word sender;
+    seL4_MessageInfo_t msg = seL4_Recv(endpoint, &sender);
+    for (int n = 0; n < ARRAY_SIZE(messages); n++) {
+        for (int i = 0; i < seL4_MessageInfo_get_length(msg); i++) {
+            printf("%c", (char) seL4_GetMR(i));
+        }
+        printf("\n");
+        if (n + 1 < ARRAY_SIZE(messages)) {
+            /* reply to the sender and wait for the next message */
+            msg = seL4_ReplyRecv(endpoint, msg, &sender);
+        } else {
+            seL4_Reply(msg);
+        }
     }
 
-    printf("\nthree round trips, each one: Call -> Recv -> Reply.\n");
-    printf("no shared memory, no queues: the kernel copies registers\n");
-    printf("directly from one thread to the other.\n");
+    printf("\nEach line was one seL4_Call: the kernel copied the message\n");
+    printf("registers straight from the client to the server -- no shared\n");
+    printf("memory, no queues.\n");
 
     seL4_DebugHalt();
-    while (1)
-        seL4_Yield();
+    return 0;
 }

@@ -18,35 +18,34 @@
 
 int main(void)
 {
-    seL4_BootInfo *bi = platsupport_get_bootinfo();
+    seL4_BootInfo *info = platsupport_get_bootinfo();
 
     printf("=== BootInfo ===\n");
     printf("node %lu of %lu\n",
-           (unsigned long)bi->nodeID, (unsigned long)bi->numNodes);
-    printf("IPC buffer at        %p\n", (void *)bi->ipcBuffer);
+           (unsigned long)info->nodeID, (unsigned long)info->numNodes);
+    printf("IPC buffer at        %p\n", (void *)info->ipcBuffer);
     printf("root CNode size      2^%lu slots\n",
-           (unsigned long)bi->initThreadCNodeSizeBits);
+           (unsigned long)info->initThreadCNodeSizeBits);
     printf("empty slots          [%lu, %lu) -- %lu free\n",
-           (unsigned long)bi->empty.start, (unsigned long)bi->empty.end,
-           (unsigned long)(bi->empty.end - bi->empty.start));
+           (unsigned long)info->empty.start, (unsigned long)info->empty.end,
+           (unsigned long)(info->empty.end - info->empty.start));
     printf("user image frames    [%lu, %lu)\n",
-           (unsigned long)bi->userImageFrames.start,
-           (unsigned long)bi->userImageFrames.end);
+           (unsigned long)info->userImageFrames.start,
+           (unsigned long)info->userImageFrames.end);
     printf("untyped caps         [%lu, %lu)\n",
-           (unsigned long)bi->untyped.start,
-           (unsigned long)bi->untyped.end);
+           (unsigned long)info->untyped.start,
+           (unsigned long)info->untyped.end);
 
+    /* the same table the official untyped tutorial prints */
     printf("\n=== Untyped memory (what everything else is made of) ===\n");
-    printf("%5s %18s %6s %s\n", "slot", "paddr", "size", "device");
+    printf("    CSlot   \tPaddr           \tSize\tType\n");
     seL4_Word total = 0;
-    for (seL4_Word i = 0; i < bi->untyped.end - bi->untyped.start; i++) {
-        seL4_UntypedDesc *u = &bi->untypedList[i];
-        printf("%5lu %#18lx 2^%-4u %s\n",
-               (unsigned long)(bi->untyped.start + i),
-               (unsigned long)u->paddr, u->sizeBits,
-               u->isDevice ? "yes" : "");
-        if (!u->isDevice)
-            total += (seL4_Word)1 << u->sizeBits;
+    for (seL4_CPtr slot = info->untyped.start; slot != info->untyped.end; slot++) {
+        seL4_UntypedDesc *desc = &info->untypedList[slot - info->untyped.start];
+        printf("%8p\t%16p\t2^%d\t%s\n", (void *) slot, (void *) desc->paddr,
+               desc->sizeBits, desc->isDevice ? "device untyped" : "untyped");
+        if (!desc->isDevice)
+            total += (seL4_Word)1 << desc->sizeBits;
     }
     printf("total non-device untyped: %lu MiB\n",
            (unsigned long)(total >> 20));

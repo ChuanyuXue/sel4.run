@@ -110,7 +110,7 @@ eval "$step4"
 
 # 5. flatten + 6. prepend the (payload-independent) OpenSBI firmware
 "$objcopy" -O binary "$work/elfloader" "$work/payload.bin"
-head -c 2097152 opensbi/platform/generic/firmware/fw_payload.bin > "$out_bin"
+head -c 2097152 images/hello-image-riscv-spike.bin > "$out_bin"
 cat "$work/payload.bin" >> "$out_bin"
 
 echo "Image: $out_bin ($(wc -c < "$out_bin" | tr -d ' ') bytes)"
