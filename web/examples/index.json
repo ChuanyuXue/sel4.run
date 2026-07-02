@@ -1,0 +1,12 @@
+[
+    { "title": "1. Hello root task", "file": "examples/01-hello.c" },
+    { "title": "2. Read BootInfo", "file": "examples/02-bootinfo.c" },
+    { "title": "3. Print initial caps", "file": "examples/03-initial-caps.c" },
+    { "title": "4. Create an endpoint", "file": "examples/04-endpoint.c" },
+    { "title": "5. IPC ping-pong", "file": "examples/05-ipc.c" },
+    { "title": "6. Notifications & badges", "file": "examples/06-notification.c" },
+    { "title": "7. Create a thread", "file": "examples/07-thread.c" },
+    { "title": "8. Untyped: carve & revoke", "file": "examples/08-untyped.c" },
+    { "title": "9. Map a frame", "file": "examples/09-map-frame.c" },
+    { "title": "10. Handle a fault", "file": "examples/10-fault.c" }
+]

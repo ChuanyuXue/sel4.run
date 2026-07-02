@@ -2,88 +2,74 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>seL4 on TinyEmu</title>
+<title>sel4.run</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
 <style>
-  body {
-    background: #1e1e1e;
-    color: #ccc;
-    font-family: system-ui, sans-serif;
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
     margin: 0;
-    padding: 16px;
+    background: #16161e;
+    color: #c0caf5;
+    font-family: system-ui, sans-serif;
   }
-  #status {
-    margin-bottom: 8px;
+  body { display: flex; flex-direction: column; }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #1a1b26;
+    border-bottom: 1px solid #2a2c3d;
+  }
+  .brand { font-weight: 600; margin-right: 8px; }
+  select, button {
+    background: #24283b;
+    color: #c0caf5;
+    border: 1px solid #3b4261;
+    border-radius: 4px;
+    padding: 4px 10px;
     font-size: 13px;
-    color: #888;
   }
+  button:not(:disabled) { cursor: pointer; }
+  button:disabled { opacity: 0.4; }
+  button:not(:disabled):hover { background: #2f334d; }
+  #run:not(:disabled) { background: #315136; border-color: #4d7c57; }
+  #status { margin-left: auto; font-size: 12px; color: #7a83a8; }
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 0;
+  }
+  #editor {
+    overflow: auto;
+    border-right: 1px solid #2a2c3d;
+    font-size: 13px;
+  }
+  #editor .cm-editor { height: 100%; }
+  #terminal { height: 100%; padding: 4px; }
 </style>
 </head>
 <body>
-<div id="status">loading emulator&hellip;</div>
-<div id="terminal"></div>
-<script>
-"use strict";
-
-var xterm = new Terminal({
-    cols: 100,
-    rows: 32,
-    convertEol: true,
-    fontFamily: "Menlo, Consolas, monospace",
-    fontSize: 13,
-    scrollback: 5000,
-    theme: { background: "#1e1e1e" },
-});
-xterm.open(document.getElementById("terminal"));
-
-var statusEl = document.getElementById("status");
-function setStatus(s) {
-    statusEl.textContent = s;
-    document.title = "seL4 on TinyEmu - " + s;
-}
-
-/* Console interface expected by TinyEmu's js/lib.js. Watch the output for
- * the rootserver's greeting so the page status reflects a successful boot
- * (also makes headless smoke testing possible). */
-var bootLog = "";
-var term = {
-    write: function(s) {
-        xterm.write(s);
-        if (bootLog !== null) {
-            bootLog += s;
-            if (bootLog.indexOf("hello from seL4 on TinyEmu!") >= 0) {
-                setStatus("boot OK");
-                bootLog = null;
-            }
-        }
-    },
-    getSize: function() { return [xterm.cols, xterm.rows]; },
-};
-
-/* keyboard -> emulated HTIF console */
-xterm.onData(function(data) {
-    for (var i = 0; i < data.length; i++)
-        Module.ccall("console_queue_char", null, ["number"], [data.charCodeAt(i)]);
-});
-
-var Module = {
-    onRuntimeInitialized: function() {
-        setStatus("running");
-        /* TinyEmu only accepts real URLs (see is_url()), so make it absolute;
-         * the machine config and its "bios" image are fetched relative to it.
-         * The RAM size passed here overrides the config file. */
-        var cfg = new URL("tinyemu.cfg", location.href).href;
-        Module.ccall("vm_start", null,
-            ["string", "number", "string", "number",
-             "number", "number", "number"],
-            [cfg, 256, "", 0, 0, 0, 0]);
-    },
-    onAbort: function(what) {
-        setStatus("emulator aborted: " + what);
-    },
-};
-</script>
-<script src="riscvemu64-wasm.js"></script>
+<header>
+  <span class="brand">sel4.run</span>
+  <select id="example">
+    <option value="">Example…</option>
+  </select>
+  <button id="run" disabled>Run</button>
+  <button id="stop" disabled>Stop</button>
+  <button id="reset" disabled>Reset</button>
+  <button id="share">Share</button>
+  <button id="download" disabled>Download image</button>
+  <span id="status">loading…</span>
+</header>
+<main>
+  <div id="editor"></div>
+  <div id="terminal"></div>
+</main>
+<script type="module" src="app.js"></script>
 </body>
 </html>
