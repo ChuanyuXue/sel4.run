@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>seL4 on TinyEmu</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<style>
+  body {
+    background: #1e1e1e;
+    color: #ccc;
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    padding: 16px;
+  }
+  #status {
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+<div id="status">loading emulator&hellip;</div>
+<div id="terminal"></div>
+<script>
+"use strict";
+
+var xterm = new Terminal({
+    cols: 100,
+    rows: 32,
+    convertEol: true,
+    fontFamily: "Menlo, Consolas, monospace",
+    fontSize: 13,
+    scrollback: 5000,
+    theme: { background: "#1e1e1e" },
+});
+xterm.open(document.getElementById("terminal"));
+
+var statusEl = document.getElementById("status");
+function setStatus(s) {
+    statusEl.textContent = s;
+    document.title = "seL4 on TinyEmu - " + s;
+}
+
+/* Console interface expected by TinyEmu's js/lib.js. Watch the output for
+ * the rootserver's greeting so the page status reflects a successful boot
+ * (also makes headless smoke testing possible). */
+var bootLog = "";
+var term = {
+    write: function(s) {
+        xterm.write(s);
+        if (bootLog !== null) {
+            bootLog += s;
+            if (bootLog.indexOf("hello from seL4 on TinyEmu!") >= 0) {
+                setStatus("boot OK");
+                bootLog = null;
+            }
+        }
+    },
+    getSize: function() { return [xterm.cols, xterm.rows]; },
+};
+
+/* keyboard -> emulated HTIF console */
+xterm.onData(function(data) {
+    for (var i = 0; i < data.length; i++)
+        Module.ccall("console_queue_char", null, ["number"], [data.charCodeAt(i)]);
+});
+
+var Module = {
+    onRuntimeInitialized: function() {
+        setStatus("running");
+        /* TinyEmu only accepts real URLs (see is_url()), so make it absolute;
+         * the machine config and its "bios" image are fetched relative to it.
+         * The RAM size passed here overrides the config file. */
+        var cfg = new URL("tinyemu.cfg", location.href).href;
+        Module.ccall("vm_start", null,
+            ["string", "number", "string", "number",
+             "number", "number", "number"],
+            [cfg, 256, "", 0, 0, 0, 0]);
+    },
+    onAbort: function(what) {
+        setStatus("emulator aborted: " + what);
+    },
+};
+</script>
+<script src="riscvemu64-wasm.js"></script>
+</body>
+</html>
