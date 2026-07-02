@@ -46,6 +46,12 @@ set(KernelRiscvUseClintMtime ON CACHE BOOL "" FORCE)
 # Elfloader settings that correspond to how the spike platform is set up.
 ApplyData61ElfLoaderSettings(${KernelPlatform} ${KernelSel4Arch})
 
+# OpenSBI is built by sel4.run itself (see opensbi.cmake) rather than by
+# seL4_tools, so that hosts whose GNU cross linker cannot create PIEs (e.g.
+# Homebrew's riscv64-elf-binutils on macOS) can fall back to clang/lld for it.
+set(UseRiscVOpenSBI OFF CACHE BOOL "" FORCE)
+include(${repo_dir}/opensbi.cmake)
+
 # turn on all the nice features for debugging/console output
 set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "" FORCE)
 set(KernelVerificationBuild OFF CACHE BOOL "" FORCE)

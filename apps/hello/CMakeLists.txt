@@ -25,3 +25,10 @@ target_link_libraries(
 
 # Set this image as the rootserver
 DeclareRootserver(hello)
+
+# Wrap the system image in OpenSBI, producing the .bin that TinyEmu boots
+DeclareOpenSBIImage(hello)
+
+# TinyEmu resolves the "bios" path relative to the config file, so place the
+# config next to the image it boots
+configure_file(tinyemu.cfg ${CMAKE_BINARY_DIR}/images/tinyemu.cfg COPYONLY)
