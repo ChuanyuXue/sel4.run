@@ -10,7 +10,11 @@
         remote="chuanyu"
         name="sel4.run"
         path="sel4.run"
-        revision="main" />
+        revision="main">
+        <linkfile src="CMakeLists.txt" dest="CMakeLists.txt" />
+        <linkfile src="settings.cmake" dest="settings.cmake" />
+        <linkfile src="apps/hello" dest="projects/hello" />
+    </project>
 
     <project
         remote="sel4"
@@ -26,7 +30,9 @@
     <project
         remote="sel4"
         name="seL4_tools"
-        path="tools/seL4_tools" />
+        path="tools/seL4_tools">
+        <linkfile src="cmake-tool/init-build.sh" dest="init-build.sh" />
+    </project>
 
     <project
         remote="riscv"
